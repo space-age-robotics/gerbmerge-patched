@@ -163,6 +163,22 @@ def writeFiducials(fid, drawcode, OriginX, OriginY, MaxXExtent, MaxYExtent):
       y = MaxYExtent + y
     fid.write('X%07dY%07dD03*\n' % (util.in2gerb(x), util.in2gerb(y)))
 
+def writeOutline(fid, OriginX, OriginY, MaxXExtent, MaxYExtent):
+  # Write width-1 aperture to file
+  AP = aptable.Aperture(aptable.Circle, 'D10', 0.001)
+  AP.writeDef(fid)
+
+  # Choose drawing aperture D10
+  fid.write('D10*\n')
+
+  # Draw the rectangle
+  fid.write('X%07dY%07dD02*\n' % (util.in2gerb(OriginX), util.in2gerb(OriginY)))        # Bottom-left
+  fid.write('X%07dY%07dD01*\n' % (util.in2gerb(OriginX), util.in2gerb(MaxYExtent)))     # Top-left
+  fid.write('X%07dY%07dD01*\n' % (util.in2gerb(MaxXExtent), util.in2gerb(MaxYExtent)))  # Top-right
+  fid.write('X%07dY%07dD01*\n' % (util.in2gerb(MaxXExtent), util.in2gerb(OriginY)))     # Bottom-right
+  fid.write('X%07dY%07dD01*\n' % (util.in2gerb(OriginX), util.in2gerb(OriginY)))        # Bottom-left
+      
+
 def writeCropMarks(fid, drawing_code, OriginX, OriginY, MaxXExtent, MaxYExtent):
   """Add corner crop marks on the given layer"""
 
@@ -517,7 +533,9 @@ def merge(opts, args, gui = None):
         writeFiducials(fid, drawing_code_fiducial_copper, OriginX, OriginY, MaxXExtent, MaxYExtent)
       elif ((layername=='*topsoldermask') or (layername=='*bottomsoldermask')):
         writeFiducials(fid, drawing_code_fiducial_soldermask, OriginX, OriginY, MaxXExtent, MaxYExtent)
-      
+    if config.Config['outlinelayers'] and (layername in config.Config['outlinelayers']):
+      writeOutline(fid, OriginX, OriginY, MaxXExtent, MaxYExtent)
+
     writeGerberFooter(fid)
     fid.close()
 

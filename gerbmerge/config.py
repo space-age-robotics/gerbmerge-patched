@@ -39,6 +39,7 @@ Config = {
    'excellondecimals': 4,            # Number of digits after the decimal point in input Excellon files
    'excellonleadingzeros': 0,        # Generate leading zeros in merged Excellon output file
    'outlinelayerfile': None,         # Name of file to which to write simple box outline, or None
+   'outlinelayers': None,	     # e.g., *toplayer, *bottomlayer
    'scoringfile': None,              # Name of file to which to write scoring data, or None
    'leftmargin': 0,                  # Inches of extra room to leave on left side of panel for tooling
    'topmargin': 0,                   # Inches of extra room to leave on top side of panel for tooling
@@ -254,7 +255,9 @@ def parseConfigFile(fname, Config=Config, Jobs=Jobs):
     Config['cutlinelayers'] = parseStringList(Config['cutlinelayers'])
   if Config['cropmarklayers']:
     Config['cropmarklayers'] = parseStringList(Config['cropmarklayers'])
-    
+  if Config['outlinelayers']:
+    Config['outlinelayers'] = parseStringList(Config['outlinelayers'])
+
   # Process list of minimum feature dimensions
   if Config['minimumfeaturesize']:
     temp = Config['minimumfeaturesize'].split(",")
