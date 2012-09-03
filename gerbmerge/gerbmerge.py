@@ -28,11 +28,14 @@ import os
 import getopt
 import re
 
+import pdb
+
 import aptable
 import jobs
 import config
 import parselayout
 import fabdrawing
+import makestroke
 import strokes
 import tiling
 import tilesearch1
@@ -78,6 +81,12 @@ Options:
 
                               fmt is 'rotate' :  0.0 rotation
                               fmt is 'normal' : 22.5 rotation (default)
+    --ack               -- Pre-acknowledge the warning, so you don't have to wait for it.
+    --text=S            -- A string of text to print between boards in layout
+    --text-size=N       -- Size (height, in mils) of text, should probably be less than 'y spacing'
+    --text-stroke=N     -- Stroke width (in mils) of text (default 10)
+    --text-x            -- X position of text (if not given, default to inside space between jobs)
+    --text-y            -- Y position of text (if not given, default to inside space between jobs)
 
 If a layout file is not specified, automatic placement is performed. If the
 placement is read from a file, then no automatic placement is performed and
@@ -217,7 +226,7 @@ def writeCropMarks(fid, drawing_code, OriginX, OriginY, MaxXExtent, MaxYExtent):
   fid.write('X%07dY%07dD01*\n' % (util.in2gerb(x+0.000), util.in2gerb(y+0.000)))
   fid.write('X%07dY%07dD01*\n' % (util.in2gerb(x+0.125), util.in2gerb(y+0.000)))
 
-def disclaimer():
+def disclaimer(ack = False):
   print """
 ****************************************************
 *           R E A D    C A R E F U L L Y           *
@@ -244,7 +253,8 @@ To agree to the above terms, press 'y' then Enter.
 Any other key will exit the program.
 
 """
-
+  if ack:
+    return
   s = raw_input()
   if s == 'y':
     print
@@ -313,6 +323,18 @@ def merge(opts, args, gui = None):
       config.TrimGerber = 0
     elif opt in ('--no-trim-excellon',):
       config.TrimExcellon = 0
+    elif opt in ('--ack',):
+      pass
+    elif opt in ('--text',):
+      config.text = arg
+    elif opt in ('--text-size',):
+      config.text_size = int(arg)
+    elif opt in ('--text-stroke',):
+      config.text_stroke = int(arg)
+    elif opt in ('--text-x',):
+      config.text_x = int(arg)
+    elif opt in ('--text-y',):
+      config.text_y = int(arg)
     else:
       raise RuntimeError, "Unknown option: %s" % opt
 
@@ -432,6 +454,31 @@ def merge(opts, args, gui = None):
     if drawing_code_fiducial_soldermask is None:
       drawing_code_fiducial_soldermask = aptable.addToApertureTable(AP)
 
+  if config.text:
+    text_size_ratio = 0.5 # proportion of Y spacing to use for text (much of this is taken up by, e.g., cutlines)
+    if not config.text_size:
+      print("Computing text size based on Y spacing...")
+    text_size = config.text_size if config.text_size else (config.Config['yspacing'] * 1000.0) * text_size_ratio
+    if text_size < config.min_text_size:
+      print("Warning: Text size ({0} mils) less than minimum ({1} mils), using minimum.".format(text_size, config.min_text_size))
+    text_size = max(text_size, config.min_text_size)
+    print("Using text size: {0} mils".format(text_size))
+
+    #pdb.set_trace()
+    # by default, set stroke proportional to the size based on the ratio of the minimum stroke to the minimum size
+    if not config.text_stroke:
+      print("Computing text stroke based on text size...")
+    text_stroke = config.text_stroke if config.text_stroke else int((text_size / config.min_text_size) * config.min_text_stroke)
+    if text_stroke < config.min_text_stroke:
+      print("Warning: Text stroke ({0} mils) less than minimum ({1} mils), using minimum.".format(text_stroke, config.min_text_stroke))
+    text_stroke = max(text_stroke, config.min_text_stroke)
+    print("Using text stroke: {0} mils".format(text_stroke))
+
+    AP = aptable.Aperture(aptable.Circle, 'D??', text_stroke / 1000.0)
+    drawing_code_text = aptable.findInApertureTable(AP)
+    if drawing_code_text is None:
+      drawing_code_text = aptable.addToApertureTable(AP)
+
   # For fabrication drawing.
   AP = aptable.Aperture(aptable.Circle, 'D??', 0.001)
   drawing_code1 = aptable.findInApertureTable(AP)
@@ -502,6 +549,9 @@ def merge(opts, args, gui = None):
       elif ((layername=='*topsoldermask') or (layername=='*bottomsoldermask')):
         apUsedDict[drawing_code_fiducial_soldermask] = None
 
+    if config.text:
+      apUsedDict[drawing_code_text] = None
+
     # Write only necessary macro and aperture definitions to Gerber file
     writeApertureMacros(fid, apmUsedDict)
     writeApertures(fid, apUsedDict)
@@ -536,7 +586,15 @@ def merge(opts, args, gui = None):
     if config.Config['outlinelayers'] and (layername in config.Config['outlinelayers']):
       writeOutline(fid, OriginX, OriginY, MaxXExtent, MaxYExtent)
 
+    if config.text:
+      Y += row.height_in() + config.Config['yspacing']
+      x = config.text_x if config.text_x else util.in2mil(OriginX + config.Config['leftmargin'])  + 100 # convert inches to mils 100 is extra margin
+      y_offset = ((config.Config['yspacing'] * 1000.0) - text_size) / 2.0
+      y = config.text_y if config.text_y else util.in2mil(OriginY + config.Config['bottommargin'] + Place.jobs[0].height_in()) + y_offset # convert inches to mils
+      fid.write('%s*\n' % drawing_code_text)    # Choose drawing aperture
+      makestroke.writeString(fid, config.text, int(util.mil2gerb(x)), int(util.mil2gerb(y)), 0, int(text_size))
     writeGerberFooter(fid)
+       
     fid.close()
 
   # Write board outline layer if selected
@@ -739,7 +797,7 @@ def updateGUI(text = None):
 
 if __name__=="__main__":
   try:
-    opts, args = getopt.getopt(sys.argv[1:], 'hv', ['help', 'version', 'octagons=', 'random-search', 'full-search', 'rs-fsjobs=', 'search-timeout=', 'place-file=', 'no-trim-gerber', 'no-trim-excellon'])
+    opts, args = getopt.getopt(sys.argv[1:], 'hv', ['help', 'version', 'octagons=', 'random-search', 'full-search', 'rs-fsjobs=', 'search-timeout=', 'place-file=', 'no-trim-gerber', 'no-trim-excellon', 'text=', 'text-size=', 'text-stroke=', 'text-x=', 'text-y=', 'ack'])
   except getopt.GetoptError:
     usage()
     
@@ -757,7 +815,7 @@ Rugged Circuits LLC
 http://ruggedcircuits.com/gerbmerge
 """ % (VERSION_MAJOR, VERSION_MINOR)
       sys.exit(0)
-    elif opt in ('--octagons', '--random-search','--full-search','--rs-fsjobs','--place-file','--no-trim-gerber','--no-trim-excellon', '--search-timeout'):
+    elif opt in ('--octagons', '--random-search','--full-search','--rs-fsjobs','--place-file','--no-trim-gerber','--no-trim-excellon', '--search-timeout', '--ack', '--text', '--text-size', '--text-stroke', '--text-x', '--text-y'):
       pass ## arguments are valid
     else:
       raise RuntimeError, "Unknown option: %s" % opt
@@ -765,7 +823,7 @@ http://ruggedcircuits.com/gerbmerge
   if len(args) > 2 or len(args) < 1:
     usage()
 
-  disclaimer()
+  disclaimer(ack = ('--ack', '') in opts)
   
   sys.exit(merge(opts, args)) ## run germberge
 # vim: expandtab ts=2 sw=2 ai syntax=python

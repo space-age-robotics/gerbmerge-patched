@@ -8,6 +8,7 @@ Version 3.  See http://www.fsf.org for details of the license.
 Rugged Circuits LLC
 http://ruggedcircuits.com/gerbmerge
 """
+import sys
 
 import math
 
@@ -80,14 +81,14 @@ def drawPolyline(fid, L, offX, offY, scale=1):
     else:
       writeFlash(fid, X+offX, Y+offY, 1)
     
-def writeGlyph(fid, glyph, X, Y, degrees, glyphName=None):
+def writeGlyph(fid, glyph, X, Y, degrees, glyphName=None, size = 10):
   if not glyphName:
     glyphName = str(glyph)
 
   for path in rotateGlyph(glyph, degrees, glyphName):
-    drawPolyline(fid, path, X, Y, 10)
+    drawPolyline(fid, path, X, Y, size)
 
-def writeChar(fid, c, X, Y, degrees):  
+def writeChar(fid, c, X, Y, degrees, size = 10):  
   if c==' ': return
 
   try:
@@ -95,14 +96,20 @@ def writeChar(fid, c, X, Y, degrees):
   except:
     raise RuntimeError, 'No glyph for character %s' % hex(ord(c))
 
-  writeGlyph(fid, glyph, X, Y, degrees, c)
+  writeGlyph(fid, glyph, X, Y, degrees, c, size)
 
-def writeString(fid, s, X, Y, degrees):
+# this assumes the aperture has already been set.
+# x and y are in gerber units (hundredths of mils?)
+# size is in mils
+def writeString(fid, s, X, Y, degrees, size = 60.0):
   posX = X
   posY = Y
   rad = degrees/180.0*math.pi
-  dX = int(round(math.cos(rad)*SpacingDX))
-  dY = int(round(math.sin(rad)*SpacingDX))
+  # convert mils to whatever goofy unit they use
+  size = size * 1/6.0
+  # divide by 10 to get offset of size right
+  dX = int(round(math.cos(rad)*SpacingDX*(size / 10.0)))
+  dY = int(round(math.sin(rad)*SpacingDX*(size / 10.0)))
 
   if 0:
     if dX < 0:
@@ -113,7 +120,7 @@ def writeString(fid, s, X, Y, degrees):
       s = string.join(s, '')
 
   for char in s:
-    writeChar(fid, char, posX, posY, degrees)
+    writeChar(fid, char, posX, posY, degrees, size)
     posX += dX
     posY += dY
 
@@ -139,7 +146,7 @@ if __name__=="__main__":
   import string
   s = string.digits+string.letters+string.punctuation
   #s = "The quick brown fox jumped over the lazy dog!"
-
+  size = float(sys.argv[1]) if len(sys.argv) > 1 else 10
   fid = file('test.ger','wt')
   fid.write("""G75*
 G70*
@@ -154,7 +161,8 @@ G70*
 D10*
 """)
 
-  writeString(fid, s, 0, 0, 0)
+  writeString(fid, s, 0, 0, 0, 10)
+  writeString(fid, s, 0, 20000, 0, size)
   drawDimensionArrow(fid, 0, 5000, FacingLeft)
   drawDimensionArrow(fid, 5000, 5000, FacingRight)
   drawDimensionArrow(fid, 0, 10000, FacingUp)

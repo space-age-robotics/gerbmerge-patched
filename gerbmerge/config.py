@@ -50,6 +50,19 @@ Config = {
    'fiducialmaskdiameter': 0.32,     # Diameter of fiducial soldermask opening
    }
 
+# these are for special text, printed on every layer
+text          = None
+text_size     = None # mils, must be enough less than Yspacing that there isn't overlap
+                     # if not specified, deduce based on Yspacing and other variables 
+	             # (cutline width, etc.)
+text_stroke   = None # mils, deduce based on text_size
+text_rotation = None # degrees
+text_x        = None # if not specified, put it in the first cutline area
+text_y        = None # if not specified, put it in the first cutline area
+
+min_text_stroke =  6 # mils, this is the minimum at SeeedStudio
+min_text_size   = 32 # mils, this is the minimum at SeeedStudio 
+
 # This dictionary is indexed by lowercase layer name and has as values a file
 # name to use for the output.
 MergeOutputFiles = {

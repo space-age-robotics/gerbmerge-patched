@@ -18,3 +18,9 @@ def in2gerb(value):
 def gerb2in(value):
   """Convert 2.5 Gerber units to inches"""
   return float(value)*1e-5
+
+def mil2gerb(value):
+  return in2gerb(float(value)/1000.0)
+
+def in2mil(value):
+  return float(value) * 1000.0
