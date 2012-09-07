@@ -782,7 +782,7 @@ def merge(opts, args, gui = None):
   if (MaxXExtent-OriginX)>config.Config['panelwidth'] or (MaxYExtent-OriginY)>config.Config['panelheight']:
     print '*'*75
     print '*'
-    print '* ERROR: Merged job exceeds panel dimensions of %.1f"x%.1f"' % (config.Config['panelwidth'],config.Config['panelheight'])
+    print '* ERROR: Merged job %.3f"x%.3f" exceeds panel dimensions of %.3f"x%.3f"' % (MaxXExtent-OriginX, MaxYExtent-OriginY, config.Config['panelwidth'],config.Config['panelheight'])
     print '*'
     print '*'*75
     sys.exit(1)

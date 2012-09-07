@@ -113,13 +113,14 @@ if do_fix_perms:
     print "*** systems without permission flags, you don't need to"
     print '*** worry about it.' 
 
-if cmd[:7]=='install':
-  print
-  print '******** Installation Complete ******** '
-  print
-  print 'Sample files and documentation have been installed in:'
-  print '   ', DestDir
-  print
-  print 'A shortcut to starting the program has been installed as:'
-  print '   ', os.path.join(BinDir, 'gerbmerge')
-  print
+for cmd in dist.commands:
+  if cmd[:7]=='install':
+    print
+    print '******** Installation Complete ******** '
+    print
+    print 'Sample files and documentation have been installed in:'
+    print '   ', DestDir
+    print
+    print 'A shortcut to starting the program has been installed as:'
+    print '   ', os.path.join(BinDir, 'gerbmerge')
+    print
